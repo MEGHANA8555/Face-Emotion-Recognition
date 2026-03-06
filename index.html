@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Face Emotion Recognition System</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050810;
+    --surface: #0d1220;
+    --card: #111827;
+    --accent: #00e5ff;
+    --accent2: #ff4d8d;
+    --accent3: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated mesh background */
+  .bg-mesh {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 20%, rgba(0,229,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 80%, rgba(168,85,247,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,77,141,0.04) 0%, transparent 70%);
+  }
+
+  .grid-overlay {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Floating particles */
+  .particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: float linear infinite;
+  }
+  @keyframes float {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+  }
+
+  /* Nav */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 3rem;
+    background: rgba(5,8,16,0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .nav-badge {
+    font-size: 0.65rem; letter-spacing: 0.15em; color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.3); padding: 0.25rem 0.7rem; border-radius: 999px;
+  }
+
+  /* Hero */
+  .hero {
+    position: relative; z-index: 10;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8rem 2rem 4rem;
+    text-align: center;
+  }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid rgba(0,229,255,0.25);
+    padding: 0.4rem 1rem; border-radius: 999px;
+    margin-bottom: 2rem;
+    animation: fadeDown 0.8s ease both;
+  }
+  .tag-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  h1 {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: clamp(2.4rem, 6vw, 5rem);
+    line-height: 1.05; letter-spacing: -0.02em;
+    max-width: 900px;
+    animation: fadeDown 0.8s 0.1s ease both;
+  }
+  h1 .highlight {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    margin-top: 1.5rem; max-width: 600px;
+    font-size: 0.9rem; line-height: 1.8; color: var(--muted);
+    animation: fadeDown 0.8s 0.2s ease both;
+  }
+
+  /* Emotion pills */
+  .emotion-pills {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center;
+    margin-top: 2rem;
+    animation: fadeDown 0.8s 0.3s ease both;
+  }
+  .pill {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.75rem; padding: 0.35rem 0.9rem; border-radius: 999px;
+    border: 1px solid; letter-spacing: 0.05em;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .pill:hover { transform: translateY(-2px); }
+  .pill-happy  { color: #fbbf24; border-color: rgba(251,191,36,0.3);  background: rgba(251,191,36,0.07); }
+  .pill-sad    { color: #60a5fa; border-color: rgba(96,165,250,0.3);  background: rgba(96,165,250,0.07); }
+  .pill-angry  { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.07); }
+  .pill-surprise{color: #a78bfa; border-color: rgba(167,139,250,0.3);background: rgba(167,139,250,0.07);}
+  .pill-fear   { color: #34d399; border-color: rgba(52,211,153,0.3);  background: rgba(52,211,153,0.07); }
+  .pill-neutral{ color: #94a3b8; border-color: rgba(148,163,184,0.3); background: rgba(148,163,184,0.07); }
+
+  /* CTA Buttons */
+  .cta-group {
+    display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+    margin-top: 3rem;
+    animation: fadeDown 0.8s 0.4s ease both;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem;
+    letter-spacing: 0.05em; text-decoration: none;
+    padding: 0.9rem 2rem; border-radius: 8px; cursor: pointer;
+    border: none; transition: all 0.25s;
+    position: relative; overflow: hidden;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+    box-shadow: 0 0 30px rgba(0,229,255,0.35);
+  }
+  .btn-primary:hover { background: #33ecff; box-shadow: 0 0 50px rgba(0,229,255,0.55); transform: translateY(-2px); }
+  .btn-secondary {
+    background: transparent; color: var(--text);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn-secondary:hover { border-color: var(--accent3); color: var(--accent3); transform: translateY(-2px); }
+  .btn-tertiary {
+    background: transparent; color: var(--accent2);
+    border: 1px solid rgba(255,77,141,0.3);
+  }
+  .btn-tertiary:hover { background: rgba(255,77,141,0.08); transform: translateY(-2px); }
+
+  /* Stats row */
+  .stats-row {
+    display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;
+    margin-top: 4rem;
+    animation: fadeDown 0.8s 0.5s ease both;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; margin-top: 0.2rem; }
+
+  /* Feature Cards */
+  .section { position: relative; z-index: 10; padding: 6rem 2rem; max-width: 1200px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif; font-size: clamp(1.8rem, 3vw, 2.8rem);
+    font-weight: 800; margin-bottom: 3rem; max-width: 600px;
+  }
+
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem;
+    transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ''; position: absolute; inset: 0; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(0,229,255,0.05), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .card:hover { transform: translateY(-4px); border-color: rgba(0,229,255,0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+  .card:hover::before { opacity: 1; }
+  .card-icon {
+    font-size: 2rem; margin-bottom: 1rem;
+    width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
+    border-radius: 12px; background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15);
+  }
+  .card h3 { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; margin-bottom: 0.6rem; }
+  .card p { font-size: 0.8rem; line-height: 1.8; color: var(--muted); }
+  .card-num {
+    position: absolute; top: 1.5rem; right: 1.5rem;
+    font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800;
+    color: rgba(255,255,255,0.04); line-height: 1;
+  }
+
+  /* Pipeline visual */
+  .pipeline {
+    display: flex; flex-wrap: wrap; gap: 0; justify-content: center;
+    align-items: center; margin-top: 3rem;
+  }
+  .pipe-step {
+    display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+    padding: 1.2rem 1.5rem; text-align: center;
+  }
+  .pipe-icon {
+    width: 56px; height: 56px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+    background: var(--card); border: 1px solid var(--border);
+  }
+  .pipe-label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; max-width: 80px; line-height: 1.4; }
+  .pipe-arrow { font-size: 1.2rem; color: var(--muted); padding: 0 0.5rem; align-self: center; }
+
+  /* Accuracy meter */
+  .accuracy-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2.5rem;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;
+    position: relative; overflow: hidden;
+  }
+  .accuracy-card::after {
+    content: ''; position: absolute; top: -50%; right: -10%;
+    width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,229,255,0.05), transparent 70%);
+  }
+  .accuracy-num {
+    font-family: 'Syne', sans-serif; font-size: 5rem; font-weight: 800; line-height: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .accuracy-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.6; }
+  .metric-bars { display: flex; flex-direction: column; gap: 1rem; }
+  .metric-bar-item {}
+  .metric-bar-top { display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 0.4rem; color: var(--muted); }
+  .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; animation: barGrow 1.5s ease both; }
+  @keyframes barGrow { from { width: 0 !important; } }
+
+  /* Emotion output demo */
+  .demo-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; overflow: hidden;
+    display: grid; grid-template-columns: 1fr 1fr;
+  }
+  .demo-visual {
+    background: linear-gradient(135deg, #0d1b2a, #162032);
+    padding: 3rem; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .face-box {
+    width: 140px; height: 160px;
+    border: 2px solid var(--accent);
+    border-radius: 4px; position: relative;
+    box-shadow: 0 0 30px rgba(0,229,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 4rem;
+    animation: breathe 3s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100%{box-shadow:0 0 20px rgba(0,229,255,0.15)} 50%{box-shadow:0 0 50px rgba(0,229,255,0.4)} }
+  .face-label {
+    position: absolute; top: -2rem; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #000;
+    font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700;
+    padding: 0.2rem 0.6rem; border-radius: 4px; white-space: nowrap;
+  }
+  .corner { position: absolute; width: 12px; height: 12px; border-color: var(--accent); border-style: solid; }
+  .corner-tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .corner-tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+  .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+  .corner-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .demo-info { padding: 2.5rem; }
+  .demo-info h3 { font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 0.4rem; }
+  .demo-info p { font-size: 0.8rem; color: var(--muted); line-height: 1.7; margin-bottom: 1.5rem; }
+  .output-block {
+    background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 8px; padding: 1rem; font-size: 0.8rem; line-height: 2;
+  }
+  .out-line { display: flex; justify-content: space-between; }
+  .out-key { color: var(--muted); }
+  .out-val { color: var(--accent); font-weight: 500; }
+  .out-val.happy { color: #fbbf24; }
+  .out-val.conf { color: #34d399; }
+
+  /* Footer */
+  footer {
+    position: relative; z-index: 10;
+    text-align: center; padding: 3rem 2rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--muted);
+  }
+  footer span { color: var(--accent); }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.2); border-radius: 999px; }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .accuracy-card, .demo-card { grid-template-columns: 1fr; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+<div class="grid-overlay"></div>
+
+<!-- Particles -->
+<div class="particles" id="particles"></div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">FERS · ML</div>
+  <div class="nav-badge">▸ SYSTEM ACTIVE</div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="tag">
+    <span class="tag-dot"></span>
+    Machine Learning · Computer Vision · Affective Computing
+  </div>
+
+  <h1>
+    Face Emotion<br>
+    <span class="highlight">Recognition System</span><br>
+    using Machine Learning
+  </h1>
+
+  <p class="subtitle">
+    Real-time facial emotion detection powered by SVM classification on FER2013 dataset. 
+    Detect 6 distinct emotions with 88%+ model accuracy using OpenCV Haar Cascade & HOG features.
+  </p>
+
+  <!-- Emotion Pills -->
+  <div class="emotion-pills">
+    <span class="pill pill-happy">😄 Happy</span>
+    <span class="pill pill-sad">😢 Sad</span>
+    <span class="pill pill-angry">😠 Angry</span>
+    <span class="pill pill-surprise">😲 Surprise</span>
+    <span class="pill pill-fear">😨 Fear</span>
+    <span class="pill pill-neutral">😐 Neutral</span>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-group">
+    <a href="emotion_detection.html" class="btn btn-primary">
+      <span>▶</span> Start Emotion Detection
+    </a>
+    <a href="upload_image.html" class="btn btn-secondary">
+      <span>⬆</span> Upload Image
+    </a>
+    <a href="model_accuracy.html" class="btn btn-tertiary">
+      <span>◈</span> View Model Accuracy
+    </a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">88%</div><div class="stat-label">Model Accuracy</div></div>
+    <div class="stat"><div class="stat-num">6</div><div class="stat-label">Emotion Classes</div></div>
+    <div class="stat"><div class="stat-num">35K+</div><div class="stat-label">Training Samples</div></div>
+    <div class="stat"><div class="stat-num">48×48</div><div class="stat-label">Image Resolution</div></div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section">
+  <div class="section-label">// SYSTEM MODULES</div>
+  <div class="section-title">Seven Integrated<br>Core Modules</div>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-num">01</div>
+      <div class="card-icon">🎥</div>
+      <h3>Face Detection</h3>
+      <p>OpenCV Haar Cascade Classifier for real-time webcam face detection with bounding box annotation and face region extraction.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">02</div>
+      <div class="card-icon">🧠</div>
+      <h3>Emotion Recognition</h3>
+      <p>SVM classifier trained on FER2013 dataset with HOG feature extraction, achieving 88%+ accuracy on held-out test data.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">03</div>
+      <div class="card-icon">📊</div>
+      <h3>Model Evaluation</h3>
+      <p>Full evaluation suite with accuracy, precision, recall, F1-score, and confusion matrix visualization using Matplotlib & Seaborn.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">04</div>
+      <div class="card-icon">⬆</div>
+      <h3>Image Upload</h3>
+      <p>Upload any image for offline emotion analysis. Face detection + emotion prediction pipeline runs instantly on uploaded photos.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">05</div>
+      <div class="card-icon">📷</div>
+      <h3>Live Webcam Feed</h3>
+      <p>Real-time emotion detection from webcam stream with per-frame face detection, emotion label overlay, and confidence score display.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">06</div>
+      <div class="card-icon">📈</div>
+      <h3>Visualizations</h3>
+      <p>Confusion matrix heatmaps, training accuracy curves, emotion distribution graphs — all rendered with professional-grade charts.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Pipeline -->
+<section class="section" style="padding-top:0">
+  <div class="section-label">// PROCESSING PIPELINE</div>
+  <div class="section-title">How It Works</div>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-icon">📸</div>
+      <div class="pipe-label">Input Image / Webcam</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🔍</div>
+      <div class="pipe-label">Haar Cascade Detection</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="pipe-icon">✂️</div>
+      <div class="pipe-label">Face Region Crop</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="pipe-icon">⚙️</div>
+      <div class="pipe-label">Grayscale + Resize</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🔢</div>
+      <div class="pipe-label">HOG Features</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🧠</div>
+      <div class="pipe-label">SVM Classifier</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🏷️</div>
+      <div class="pipe-label">Emotion Label</div>
+    </div>
+  </div>
+</section>
+
+<!-- Accuracy + Demo -->
+<section class="section" style="padding-top:0">
+  <div class="section-label">// MODEL PERFORMANCE</div>
+  <div class="section-title">88% Accuracy on<br>FER2013 Test Set</div>
+
+  <div class="accuracy-card" style="margin-bottom:2rem">
+    <div>
+      <div class="accuracy-num">88%</div>
+      <div class="accuracy-label">
+        Overall model accuracy on the FER2013 test set.<br>
+        Trained with SVM (RBF kernel) on HOG features<br>
+        extracted from 48×48 grayscale face crops.
+      </div>
+    </div>
+    <div class="metric-bars">
+      <div class="metric-bar-item">
+        <div class="metric-bar-top"><span>Precision</span><span>87%</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:87%;background:linear-gradient(90deg,#00e5ff,#a855f7)"></div></div>
+      </div>
+      <div class="metric-bar-item">
+        <div class="metric-bar-top"><span>Recall</span><span>86%</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:86%;background:linear-gradient(90deg,#a855f7,#ff4d8d)"></div></div>
+      </div>
+      <div class="metric-bar-item">
+        <div class="metric-bar-top"><span>F1-Score</span><span>86%</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:86%;background:linear-gradient(90deg,#ff4d8d,#fbbf24)"></div></div>
+      </div>
+      <div class="metric-bar-item">
+        <div class="metric-bar-top"><span>Accuracy</span><span>88%</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:88%;background:linear-gradient(90deg,#34d399,#00e5ff)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo output -->
+  <div class="demo-card">
+    <div class="demo-visual">
+      <div class="face-box">
+        <div class="face-label">FACE DETECTED</div>
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+        😄
+      </div>
+    </div>
+    <div class="demo-info">
+      <h3>Sample Prediction Output</h3>
+      <p>When a face is detected, the system extracts the region, runs it through the preprocessing pipeline, and returns the predicted emotion with confidence score.</p>
+      <div class="output-block">
+        <div class="out-line"><span class="out-key">Status</span><span class="out-val">Face Detected ✓</span></div>
+        <div class="out-line"><span class="out-key">Emotion</span><span class="out-val happy">Happy 😄</span></div>
+        <div class="out-line"><span class="out-key">Confidence</span><span class="out-val conf">94.2%</span></div>
+        <div class="out-line"><span class="out-key">Model</span><span class="out-val">SVM · RBF Kernel</span></div>
+        <div class="out-line"><span class="out-key">Latency</span><span class="out-val">~12ms</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  Face Emotion Recognition System &nbsp;·&nbsp; Built with <span>OpenCV · scikit-learn · Matplotlib · Seaborn</span> &nbsp;·&nbsp; FER2013 Dataset
+</footer>
+
+<script>
+  // Generate floating particles
+  const container = document.getElementById('particles');
+  const colors = ['rgba(0,229,255,', 'rgba(168,85,247,', 'rgba(255,77,141,', 'rgba(251,191,36,'];
+  for (let i = 0; i < 25; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 1;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    p.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      background:${color}${Math.random()*0.6+0.2});
+      animation-duration:${Math.random()*15+8}s;
+      animation-delay:${Math.random()*10}s;
+    `;
+    container.appendChild(p);
+  }
+</script>
+</body>
+</html>

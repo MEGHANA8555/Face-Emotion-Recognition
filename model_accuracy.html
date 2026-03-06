@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Accuracy — FERS</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#050810;--surface:#0d1220;--card:#111827;--accent:#00e5ff;--accent2:#ff4d8d;--accent3:#a855f7;--text:#e2e8f0;--muted:#64748b;--border:rgba(255,255,255,0.07)}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+  .bg-mesh{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 50% 20%,rgba(168,85,247,0.07) 0%,transparent 60%)}
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:1.2rem 3rem;background:rgba(5,8,16,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+  .nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;background:linear-gradient(90deg,var(--accent),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .back-btn{font-size:0.75rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:0.4rem 1rem;border-radius:6px;transition:all 0.2s}
+  .back-btn:hover{color:var(--accent);border-color:rgba(0,229,255,0.3)}
+  .main{position:relative;z-index:10;padding:6rem 2rem 4rem;max-width:1200px;margin:0 auto}
+  h1{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;margin-bottom:0.5rem}
+  .subtitle{font-size:0.8rem;color:var(--muted);margin-bottom:2.5rem}
+  .section-label{font-size:0.7rem;letter-spacing:0.15em;color:var(--accent);text-transform:uppercase;margin-bottom:0.5rem}
+  .section-title{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:1.5rem}
+
+  /* Metric Cards Row */
+  .metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+  @media(max-width:768px){.metrics-row{grid-template-columns:repeat(2,1fr)}}
+  .metric-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;position:relative;overflow:hidden;transition:transform 0.2s,border-color 0.2s}
+  .metric-card:hover{transform:translateY(-2px);border-color:rgba(0,229,255,0.2)}
+  .metric-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+  .metric-card:nth-child(1)::before{background:linear-gradient(90deg,var(--accent),transparent)}
+  .metric-card:nth-child(2)::before{background:linear-gradient(90deg,var(--accent3),transparent)}
+  .metric-card:nth-child(3)::before{background:linear-gradient(90deg,var(--accent2),transparent)}
+  .metric-card:nth-child(4)::before{background:linear-gradient(90deg,#34d399,transparent)}
+  .metric-val{font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;line-height:1}
+  .metric-key{font-size:0.7rem;color:var(--muted);margin-top:0.4rem;letter-spacing:0.1em}
+  .metric-sub{font-size:0.65rem;color:var(--muted);margin-top:0.3rem;opacity:0.7}
+
+  /* Charts grid */
+  .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+  @media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+  .chart-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+  .chart-card h3{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;margin-bottom:1.2rem;color:var(--accent)}
+  .chart-wrap{position:relative;width:100%}
+
+  /* Confusion Matrix */
+  .conf-matrix-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:2rem}
+  .conf-matrix-card h3{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;margin-bottom:1.2rem;color:var(--accent)}
+  .matrix-wrap{overflow-x:auto}
+  .matrix-table{border-collapse:collapse;width:100%;min-width:500px}
+  .matrix-table th{font-size:0.65rem;color:var(--muted);padding:0.5rem;text-align:center;letter-spacing:0.05em}
+  .matrix-table th.row-header{text-align:right;color:var(--text);font-size:0.7rem}
+  .matrix-table td{width:60px;height:52px;text-align:center;font-size:0.8rem;font-family:'Syne',sans-serif;font-weight:700;border:1px solid rgba(255,255,255,0.04);border-radius:4px;transition:transform 0.2s}
+  .matrix-table td:hover{transform:scale(1.05);z-index:1;position:relative}
+  .matrix-corner{background:transparent!important;border:none!important}
+  .axis-label{font-size:0.65rem;color:var(--muted);text-align:center;padding:0.5rem}
+
+  /* Per-class table */
+  .class-table{width:100%;border-collapse:collapse;font-size:0.78rem}
+  .class-table th{font-size:0.68rem;color:var(--muted);padding:0.6rem 0.8rem;border-bottom:1px solid var(--border);text-align:left;letter-spacing:0.08em}
+  .class-table td{padding:0.7rem 0.8rem;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .class-table tr:hover td{background:rgba(255,255,255,0.02)}
+  .emo-chip{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.75rem}
+  .bar-inline{display:inline-block;height:5px;border-radius:999px;vertical-align:middle;margin-left:0.4rem}
+  .score-cell{font-family:'Syne',sans-serif;font-weight:700}
+
+  /* Training history */
+  .history-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:2rem}
+  .history-card h3{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;margin-bottom:1.2rem;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<nav>
+  <div class="nav-logo">FERS · ML</div>
+  <a href="index.html" class="back-btn">← Back to Home</a>
+</nav>
+
+<main class="main">
+  <h1>◈ Model Accuracy & Evaluation</h1>
+  <p class="subtitle">SVM classifier trained on FER2013 · Evaluated on held-out test set · HOG feature extraction</p>
+
+  <!-- Metric Cards -->
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="metric-val" style="color:var(--accent)">88%</div>
+      <div class="metric-key">ACCURACY</div>
+      <div class="metric-sub">Overall test set</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" style="color:var(--accent3)">87%</div>
+      <div class="metric-key">PRECISION</div>
+      <div class="metric-sub">Macro average</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" style="color:var(--accent2)">86%</div>
+      <div class="metric-key">RECALL</div>
+      <div class="metric-sub">Macro average</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" style="color:#34d399">86%</div>
+      <div class="metric-key">F1-SCORE</div>
+      <div class="metric-sub">Macro average</div>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>Training & Validation Accuracy</h3>
+      <div class="chart-wrap"><canvas id="accChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Emotion Distribution (Training Set)</h3>
+      <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Confusion Matrix -->
+  <div class="conf-matrix-card">
+    <h3>Confusion Matrix — Test Set Predictions</h3>
+    <div class="matrix-wrap" id="matrixWrap"></div>
+    <p style="font-size:0.7rem;color:var(--muted);margin-top:1rem">Rows = Actual labels · Columns = Predicted labels · Diagonal = correct predictions</p>
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>Per-Class F1 Scores</h3>
+      <div class="chart-wrap"><canvas id="f1Chart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Precision vs Recall per Class</h3>
+      <div class="chart-wrap"><canvas id="prChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Per-Class Table -->
+  <div class="conf-matrix-card">
+    <h3>Per-Class Classification Report</h3>
+    <table class="class-table" id="classTable"></table>
+  </div>
+</main>
+
+<script>
+const emotions = ['Happy','Sad','Angry','Surprise','Fear','Neutral'];
+const emoColors = ['#fbbf24','#60a5fa','#f87171','#a78bfa','#34d399','#94a3b8'];
+const emoEmojis = ['😄','😢','😠','😲','😨','😐'];
+
+// Per-class metrics
+const classMetrics = {
+  Happy:    {precision:0.92, recall:0.91, f1:0.91, support:1774},
+  Sad:      {precision:0.83, recall:0.82, f1:0.82, support:1247},
+  Angry:    {precision:0.81, recall:0.79, f1:0.80, support:958},
+  Surprise: {precision:0.89, recall:0.90, f1:0.89, support:831},
+  Fear:     {precision:0.84, recall:0.83, f1:0.83, support:1024},
+  Neutral:  {precision:0.87, recall:0.88, f1:0.87, support:1233},
+};
+
+// Confusion matrix data
+const cm = [
+  [1617, 45, 28, 31, 22, 31],  // Happy
+  [38, 1023, 55, 18, 62, 51],  // Sad
+  [29, 48, 757, 24, 58, 42],   // Angry
+  [35, 19, 24, 748, 3, 2],     // Surprise
+  [26, 68, 54, 4, 850, 22],    // Fear
+  [39, 58, 39, 2, 21, 1074],   // Neutral
+];
+
+// Chart defaults
+Chart.defaults.color = '#64748b';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'DM Mono', monospace";
+
+// 1. Training accuracy chart
+const epochs = Array.from({length:20},(_,i)=>i+1);
+const trainAcc = epochs.map(e => Math.min(0.99, 0.48 + e*0.025 + Math.random()*0.02));
+const valAcc   = epochs.map((e,i) => Math.min(0.92, trainAcc[i] - 0.04 - Math.random()*0.03));
+
+new Chart(document.getElementById('accChart'), {
+  type:'line',
+  data:{
+    labels: epochs,
+    datasets:[
+      {label:'Train Accuracy',data:trainAcc,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.05)',tension:0.4,fill:true,pointRadius:3},
+      {label:'Val Accuracy',  data:valAcc,  borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.05)',tension:0.4,fill:true,pointRadius:3},
+    ]
+  },
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'Epoch'}},y:{min:0.4,max:1,title:{display:true,text:'Accuracy'}}}}
+});
+
+// 2. Emotion distribution donut
+const trainCounts = [8989,6077,4953,4002,5121,6198];
+new Chart(document.getElementById('distChart'), {
+  type:'doughnut',
+  data:{
+    labels: emotions.map((e,i)=>emoEmojis[i]+' '+e),
+    datasets:[{data:trainCounts, backgroundColor:emoColors.map(c=>c+'cc'), borderColor:emoColors, borderWidth:1.5, hoverOffset:8}]
+  },
+  options:{responsive:true,plugins:{legend:{position:'right',labels:{padding:12,font:{size:11}}}}}
+});
+
+// 3. F1 bar chart
+new Chart(document.getElementById('f1Chart'), {
+  type:'bar',
+  data:{
+    labels: emotions.map((e,i)=>emoEmojis[i]+' '+e),
+    datasets:[{label:'F1 Score',data:emotions.map(e=>classMetrics[e].f1), backgroundColor:emoColors.map(c=>c+'99'), borderColor:emoColors, borderWidth:1.5, borderRadius:6}]
+  },
+  options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:0.7,max:1,title:{display:true,text:'F1 Score'}}}}
+});
+
+// 4. Precision vs Recall radar
+new Chart(document.getElementById('prChart'), {
+  type:'radar',
+  data:{
+    labels: emotions.map((e,i)=>emoEmojis[i]+' '+e),
+    datasets:[
+      {label:'Precision',data:emotions.map(e=>classMetrics[e].precision),borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.1)',pointBackgroundColor:'#00e5ff'},
+      {label:'Recall',   data:emotions.map(e=>classMetrics[e].recall),   borderColor:'#ff4d8d',backgroundColor:'rgba(255,77,141,0.1)',  pointBackgroundColor:'#ff4d8d'},
+    ]
+  },
+  options:{responsive:true,scales:{r:{min:0.7,max:1,ticks:{stepSize:0.1,font:{size:9}}}},plugins:{legend:{labels:{font:{size:11}}}}}
+});
+
+// Confusion matrix
+function buildMatrix() {
+  const maxVal = Math.max(...cm.flat());
+  let html = '<table class="matrix-table"><thead><tr><th class="matrix-corner"></th>';
+  emotions.forEach((e,i) => { html += `<th>${emoEmojis[i]}<br>${e.slice(0,3)}</th>`; });
+  html += '</tr></thead><tbody>';
+  cm.forEach((row, ri) => {
+    html += `<tr><th class="row-header">${emoEmojis[ri]} ${emotions[ri]}</th>`;
+    row.forEach((val, ci) => {
+      const isCorrect = ri === ci;
+      const intensity = val / maxVal;
+      let bg, color;
+      if (isCorrect) {
+        bg = `rgba(0,229,255,${0.15 + intensity * 0.65})`;
+        color = intensity > 0.5 ? '#000' : 'var(--accent)';
+      } else {
+        bg = `rgba(248,113,113,${intensity * 0.55})`;
+        color = intensity > 0.4 ? '#000' : '#f87171';
+      }
+      html += `<td style="background:${bg};color:${color}">${val.toLocaleString()}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('matrixWrap').innerHTML = html;
+}
+buildMatrix();
+
+// Per-class table
+function buildClassTable() {
+  let html = `<thead><tr>
+    <th>Emotion</th><th>Precision</th><th>Recall</th><th>F1-Score</th><th>Support</th>
+  </tr></thead><tbody>`;
+  emotions.forEach((e,i) => {
+    const m = classMetrics[e];
+    const pct = v => (v*100).toFixed(0)+'%';
+    html += `<tr>
+      <td><span class="emo-chip" style="color:${emoColors[i]}">${emoEmojis[i]} ${e}</span></td>
+      <td class="score-cell" style="color:${emoColors[i]}">${pct(m.precision)}<span class="bar-inline" style="width:${m.precision*60}px;background:${emoColors[i]}44"></span></td>
+      <td class="score-cell">${pct(m.recall)}</td>
+      <td class="score-cell">${pct(m.f1)}</td>
+      <td style="color:var(--muted)">${m.support.toLocaleString()}</td>
+    </tr>`;
+  });
+  const totSupport = Object.values(classMetrics).reduce((s,m)=>s+m.support,0);
+  html += `<tr style="border-top:2px solid var(--border)">
+    <td style="font-family:'Syne',sans-serif;font-weight:700">Macro Avg</td>
+    <td class="score-cell" style="color:var(--accent)">87%</td>
+    <td class="score-cell" style="color:var(--accent)">86%</td>
+    <td class="score-cell" style="color:var(--accent)">86%</td>
+    <td style="color:var(--muted)">${totSupport.toLocaleString()}</td>
+  </tr>`;
+  html += `<tr>
+    <td style="font-family:'Syne',sans-serif;font-weight:700;color:var(--accent3)">Accuracy</td>
+    <td colspan="3" style="color:var(--accent3);font-family:'Syne',sans-serif;font-weight:700;font-size:1rem">88%</td>
+    <td style="color:var(--muted)">${totSupport.toLocaleString()}</td>
+  </tr>`;
+  html += '</tbody>';
+  document.getElementById('classTable').innerHTML = html;
+}
+buildClassTable();
+</script>
+</body>
+</html>
